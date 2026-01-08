@@ -2,9 +2,10 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials, HTTPBasic, HTTPBasicCredentials
 from app.core.config import settings
+import json
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -30,6 +31,34 @@ def create_access_token(user_id: str, username: str, expires_delta: Optional[tim
         "exp": expire,            # 过期时间
     }
     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+
+
+def get_lambda_context(request: Request) -> dict:
+    """从请求头获取 Lambda 上下文信息"""
+    lambda_ctx = request.headers.get("x-amzn-lambda-context")
+    request_ctx = request.headers.get("x-amzn-request-context")
+    
+    result = {
+        "lambda_context": None,
+        "request_context": None,
+        "cognito_identity": None,
+    }
+    
+    if lambda_ctx:
+        try:
+            result["lambda_context"] = json.loads(lambda_ctx)
+        except:
+            pass
+    
+    if request_ctx:
+        try:
+            ctx = json.loads(request_ctx)
+            result["request_context"] = ctx
+            result["cognito_identity"] = ctx.get("identity", {})
+        except:
+            pass
+    
+    return result
 
 
 def get_current_user(

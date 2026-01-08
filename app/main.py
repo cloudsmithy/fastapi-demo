@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi import Request, Depends
 from app.routers import auth, users, form
+from app.core.security import get_lambda_context
 
 app = FastAPI(
     title="FastAPI Demo",
@@ -22,10 +24,18 @@ app.include_router(form.router, prefix="/form", tags=["表单"])
 
 
 @app.get("/")
-def root():
-    return {"message": "Welcome to FastAPI"}
+def root(lambda_ctx: dict = Depends(get_lambda_context)):
+    return {
+        "message": "Welcome to FastAPI",
+        "lambda_context": lambda_ctx["lambda_context"],
+        "request_context": lambda_ctx["request_context"],
+        "cognito_identity": lambda_ctx["cognito_identity"],
+    }
 
 
 @app.get("/health")
-def health_check():
-    return {"status": "healthy"}
+def health_check(lambda_ctx: dict = Depends(get_lambda_context)):
+    return {
+        "status": "healthy",
+        "function_name": lambda_ctx["lambda_context"].get("env_config", {}).get("function_name") if lambda_ctx["lambda_context"] else None,
+    }
