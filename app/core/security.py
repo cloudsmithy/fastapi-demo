@@ -33,10 +33,19 @@ def create_access_token(user_id: str, username: str, expires_delta: Optional[tim
     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
+def parse_request_context(request: Request) -> Optional[dict]:
+    """解析 x-amzn-request-context header"""
+    if ctx := request.headers.get("x-amzn-request-context"):
+        try:
+            return json.loads(ctx)
+        except:
+            pass
+    return None
+
+
 def get_lambda_context(request: Request) -> dict:
     """从请求头获取 Lambda 上下文信息"""
     lambda_ctx = request.headers.get("x-amzn-lambda-context")
-    request_ctx = request.headers.get("x-amzn-request-context")
     
     result = {
         "lambda_context": None,
@@ -50,13 +59,9 @@ def get_lambda_context(request: Request) -> dict:
         except:
             pass
     
-    if request_ctx:
-        try:
-            ctx = json.loads(request_ctx)
-            result["request_context"] = ctx
-            result["cognito_identity"] = ctx.get("identity", {})
-        except:
-            pass
+    if ctx := parse_request_context(request):
+        result["request_context"] = ctx
+        result["cognito_identity"] = ctx.get("identity", {})
     
     return result
 
